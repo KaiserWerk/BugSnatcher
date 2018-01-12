@@ -3,7 +3,7 @@ namespace KaiserWerk\ErrorHandler;
 
 #use KaiserWerk\ErrorHandler\ErrorHandler;
 
-require_once 'KaiserWerk/ErrorHandler/ErrorHandler.php';
+require_once 'src/ErrorHandler.php';
 
 $eh = new ErrorHandler();
 echo '<pre>';
