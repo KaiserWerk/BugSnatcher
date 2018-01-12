@@ -1,0 +1,11 @@
+{
+    "name": "kaiserwerk/errorhandler",
+    "authors": [
+        {
+            "name": "Robin Kaiser",
+            "email": "m@r-k.mx"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}
