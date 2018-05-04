@@ -1,8 +1,8 @@
 <?php
 
-namespace KaiserWerk\ErrorHandler;
+namespace KaiserWerk\BugSnatcher;
 
-class ErrorHandler
+class BugSnatcher
 {
     protected $config;
     public function __construct()
@@ -73,7 +73,7 @@ class ErrorHandler
 
         $database = $this->config['database'];
         if ($database['enabled'] === true) {
-            // create schema
+            // @TODO create schema
             //
             //
             //
