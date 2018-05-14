@@ -6,3 +6,4 @@ Still needs some serious brush-up.
 
 * Add Stride Notification
 * Add Slack Notification
+* Add an example for a table schema
