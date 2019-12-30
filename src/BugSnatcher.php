@@ -1,15 +1,13 @@
-<?php
+<?php /** @noinspection ALL */
 
 namespace KaiserWerk\BugSnatcher;
 
 class BugSnatcher
 {
     protected $config;
-    public function __construct()
+    public function __construct(array $configValues)
     {
-        $this->config = parse_ini_file(__DIR__ . '/ErrorHandlerConfiguration.ini', true, INI_SCANNER_TYPED);
-        set_error_handler(array($this, 'errorHandler'));
-        set_exception_handler(array($this, 'exceptionHandler'));
+    
     }
 
     public function getConfig()
@@ -27,13 +25,17 @@ class BugSnatcher
             // through to the standard PHP error handler
             return false;
         }
+        
+        set_error_handler(array($this, "processError"), E_ALL);
+        set_exception_handler(array($this, "processException"));
+        
         $this->processError($level, $string, $file, $line);
 
         /* Don't execute PHP internal error handler */
         return true;
     }
 
-    public function exceptionHandler($exception)
+    public function processException($exception)
     {
         $this->processError($exception->getCode(), $exception->getMessage(), $exception->getFile(), $exception->getLine(), true);
     }
@@ -74,16 +76,14 @@ class BugSnatcher
         $database = $this->config['database'];
         if ($database['enabled'] === true) {
             // @TODO create schema
-            //
-            //
-            //
+            
         }
 
         $email = $this->config['email'];
         if ($email['enabled'] === true) {
             foreach ($email['mail_array'] as $address)
             mail(
-                $address,
+                trim($address),
                 'Error: '.$level_prepared.' occured',
                 $log_line,
                 'From: '.$this->config['general']['email_from']
@@ -128,10 +128,10 @@ class BugSnatcher
 
         $logit = $this->config['logit'];
         if ($logit['enabled'] === true) {
-            $ch = curl_init('https://api.log-it.me/v2/write/');
+            $ch = curl_init('https://log-it.codeforge.me/v2/write/');
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_HEADER, array(
-                'X-Logit-ApiKey' => $logit['apikey'],
+                'X-Logit-Apikey' => $logit['apikey'],
             ));
             curl_setopt($ch, CURLOPT_POSTFIELDS, array(
                 'set_id' => $logit['set_id'],
@@ -143,84 +143,19 @@ class BugSnatcher
 
         $webhook = $this->config['webhook'];
         if ($webhook['enabled'] === true) {
-            echo "ja";
+            foreach ($webhook['hook_array'] as $hook) {
+                $ch = curl_init($hook['url']);
+                if (isset($hook['no_ssl']) && $hook['no_ssl'] === true) {
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                }
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, array(
+                    'error_data' => $log_line_raw,
+                ));
+                curl_exec($ch);
+                curl_close($ch);
+            }
         }
-    }
-
-    private function SMTPsend ($to, $from, $subject, $body)
-    {   define (LF, "\n");              // Normal linefeed
-        define (CRLF, "\r\n");       // Always used by SMTP.
-
-        if ($_SERVER["SERVER_ADDR"])
-            define (BR, "<br />");       // HTML linefeed
-        else
-            define (BR, LF);                // Normal linefeed
-
-//    Build header lines. Remember TWO linefeeds at the end!
-        $header = <<<headend
-To: $to
-From: $from
-Subject: $subject
-MIME-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-X-Priority: 3
-X-Mailer: SMTPsend 2.0
-
-
-headend;
-
-        $smtp_host = "ssl://mail.whatever.net";   // Change these!
-        $smtp_port = 465;
-        $smtp_user = "username+whatever.net";
-        $smtp_pass = "My SeCrEt PaSsWoRd";
-
-// Only addresses, with brackets
-        if ( ($p = strpos($to,"<") ) > 0)
-            $smtp_to = substr ($to,$p);
-        else
-            $smtp_to = "<$to>";
-
-        if ( ($p = strpos($from,"<") ) > 0)
-            $smtp_from = substr ($from,$p);
-        else
-            $smtp_from = "<$from>";
-
-//    Open socket
-        $smtp_server = @fsockopen($smtp_host, $smtp_port, $errno, $errstr, 30)
-        or die("Attempting connection to $smtp_host on port $smtp_port failed!"
-            .BR."Connection refused on $smtp_host at port $smtp_port.");
-
-        if(!$smtp_server)
-        {    error_log ("Sending to ".$smtp_host." failed!".LF,3,ERRORLOG);
-            print "Connection to $smtp_host on port $smtp_port failed!"
-                .BR."[$errorno] $errorstr";
-            return false;
-        }
-
-        fwrite($smtp_server,
-            "EHLO".CRLF
-            ."MAIL FROM:$smtp_from".CRLF
-            ."RCPT TO:$smtp_to".CRLF
-            ."DATA".CRLF);
-
-        fwrite($smtp_server, $header);
-
-        $max = 2048;
-        $start = $end = 0;
-
-        echo "Body length: ".strlen($body).BR;
-        do
-        {    $end = min (strlen($body),$start+$max);
-            $len = $end-$start;
-//        echo "Start = $start, End = $end".BR;
-            fwrite($smtp_server, substr ($body,$start,$len));
-            $start += $len;
-        } while ($start < strlen($body));
-
-        fwrite($smtp_server, CRLF.CRLF.".".CRLF."QUIT".CRLF);
-        fclose($smtp_server);
-        error_log ("Sending complete.".LF,3,ERRORLOG);
-        return true;
     }
 }
